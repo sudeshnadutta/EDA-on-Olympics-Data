@@ -1,0 +1,759 @@
+---
+title: "Summer Olympics - EDA"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '5'
+---
+```{r knitr::opts_chunk$set(message = FALSE)}
+```
+
+
+# 1. What is EDA?
+
+Exploratory Data Analysis (EDA) is one of the most important steps of any data science project. In order to carry out any kind of modelling or prediction, the most important step is to first get a bird's eye view of the data. EDA is nothing but an overall summarisation of the different attributes of the data mostlly via visual methods.
+Any EDA comprises of the following steps:
+
+* Defining the problem statement
+* Collecting data required for the problem
+* Pre-processing of data
+* Pre-profiling
+* Processing data based on pre-profiling
+* Post profiling of data
+* Breaking down into high level topics based on problem statement
+* Performing univariate, bivariate and multivariate analysis on these topics to understand the data
+
+An effective EDA performed on a dataset helps to identify relevant features that can be fed to our machine learning algorithms and generate a good model with high predictve power.
+
+# 2. Why is EDA important?
+
+Real world data is mostly unstructured and dirty in nature. If we do not perform EDA first and directly feed this data into any machine learning algorithm, then we can be pretty sure that we would not get any desireable result. As it is often said 'Garbage In Garbage Out'. EDA helps in identifying gaps in the data and then filling those gaps appropriately and hence EDA is considered the most important part of any data science project workflow and easily comprises of 60-70% of the work.
+
+# 3. Problem at Hand
+
+Here we have a dataset which has data on Summer Olympics played between 1896-2012. It contains data on only those Athletes who have won either of gold, silver or bronze medal. 
+**Our task is to explore the data by framing meaningful questions and use the power of R to easily visualise the data and come up with few meaningful insights.**
+So, the problem at hand is basically threefold:
+
+* Explore the Sports played at Olympics
+* Explore the top countries in Olympics
+* Explore the top performing Athletes
+* Explore the gender distribution
+
+# 4. Brief about Summer Olympics
+
+The first modern Olympics was held in 1896 in Greece with just 9 Sporting events. Overtime the number of participating countries and sporting events increased handsomely and eventually in 2016, 35 events were held. Until, 1936 Olympics was not televised. It was first televised during the Berlin Olympics in 1936. After that the worldwide telecast happened only in 1960 during the Rome Olympics. The last Olympics was held in 2016 in Brazil and is commonly known as the Rio 2016. The Tokyo 2020, Japan which was due in July, 2020 has been officially postponed to 2021 due to the worldwide outbreak of covid 19.
+
+
+# 5. EDA Workflow for this Data
+
+The following steps will be followed for EDA:
+
+* Loading and Reading Data
+* Pre-Profling
+* Data Cleaning and Preparing
+* Post-Profiling
+* Univariate Analysis
+* Bivariate and Multivariate Analysis
+
+The analysis will be done using a question-answer framework
+
+# 6. Loading Necessary Packages
+
+```{r}
+library(dplyr)
+library(psych)
+library(vtree)
+library(DataExplorer)
+library(tidyquant)
+library(tidyverse)
+library(ggplot2)
+library(esquisse)
+library(GGally)
+library(vcd)
+library(ggthemes)
+library(DT)
+library(data.table)
+```
+
+# 7. Exploratory Data Analysis
+
+## 7.1 Loading and Reading Data
+
+```{r}
+df = read.csv("C:/Users/suddutta/Downloads/Term 1 data files/Term-1-master/Data/Projects/summer olympics.csv")
+head(df) #showing the first 6 rows of the dataset
+```
+
+Glimpse of the data
+```{r}
+data.table(glimpse(df))
+```
+
+glimpse function shows that there are 31,165 rows and 9 columns in the dataset.
+Only the year column in integer while rest all the columns are categorical.
+
+
+## 7.2 Pre-Profiling of Data
+
+**create_report()** function from the ** Data Explorer ** package gives an html summary of the data.
+```{r}
+#create_report(df) 
+```
+
+Observations from the report
+
+* 31,165 rows and 9 columns
+* 8 discrete(factor/character) columns and 1 continuos(integer) column
+* No missing values
+* Except for ** Gender ** and ** Medal ** columns, all other character columns have large number of factors
+
+
+## 7.3 Data Cleaning and Preparation
+
+There is no such data cleaning required for this dataset as it is a structured data with no abnormalities. However, just one thing can be made better for upcoming analysis and that is the ** Athlete ** column. The names of the athletes are written in a **Title, Name** format which might be difficult to comprehend. Hence, we will clean it and process it in a way that will be easier for analysis purposes.
+
+```{r}
+df$Athlete = gsub(","," ", df$Athlete)  #removes "," and replaces with space
+df$Athlete = toupper(df$Athlete) #makes everything in caps
+```
+
+
+## 7.4 Univariate Analysis
+
+Univariate Analysis deals with one variable/column at a time.
+
+### 7.4.1 Has the participation increased over the years?
+
+```{r}
+ggplot(data = df, aes(x= factor(Year))) + geom_bar(fill = 'lightblue') +
+  xlab("Year") + ylab("Frquency") + theme(axis.text.x = element_text(size=10, angle=45)) 
+```
+
+**Number of matches has increased significantly over time. This could be due to more countries participating in Olympics and also increase in  number of Events and Sports. We will find that out during bivariate analysis.**
+
+### 7.4.2 What is the men to women participation rate in Olympics in terms of winning medals?
+
+```{r}
+#using vtree package to plot this
+vtree(df, "Gender", horiz=FALSE, height=250, width=850)
+```
+
+**The participation is quite skewed towards men. Women have so far won 8419 medals while men have won 22746 medals.**
+
+### 7.4.3 Who are the top performing Athletes?
+
+```{r}
+Athletes = df %>%
+  group_by(Athlete) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+
+#showing top 10
+ggplot(data = Athletes[1:10,]) +
+  geom_bar(stat = 'identity', aes(x = reorder(Athlete, Count), y = Count), fill = 'orange') + coord_flip() + xlab(NULL) + theme(axis.text.x = element_text(size = 12, face = 'bold'),
+                                                                                                                                axis.text.y = element_text(size = 12, face = 'bold'))
+```
+
+**Michael Phelps has been the topmost performer in Olympics bagging 22 medals.**
+
+### 7.4.4 Number of Sports, Discipline, Events and Athletes in Olympics?
+
+```{r}
+Num_events =df %>%
+  summarise(Sport=n_distinct(Sport), Discipline = n_distinct(Discipline), Event = n_distinct(Event), Athlete = n_distinct(Athlete))
+Num_events
+
+```
+
+**There are 666 unique events under 67 Disciplines across 43 Sports in Olympics**
+
+### 7.4.5 How many countries have won at least 1 medal in Olympics?
+
+```{r}
+length(levels(df$Country))
+```
+
+**148 countries have so far participated in Olympics and won atleast one medal.**
+
+### 7.4.6 Top 10 countries with most number of medals
+
+```{r}
+Countries = df %>%
+  group_by(Country)%>%
+  summarise(Count = n())%>%
+  arrange(desc(Count))
+  
+#plotting top 10 countries
+ggplot(Countries[1:10,], aes(x = reorder(Country, - Count), y = Count, fill = Country)) + geom_bar(stat = 'identity')+
+  xlab("Country") + ylab("Frequency") + scale_fill_brewer(palette = "Spectral") +
+  theme(axis.text.x = element_text(size = 12, face = 'bold'),
+                                                                                                                                axis.text.y = element_text(size = 12, face = 'bold'))
+```
+
+**USA has won the most number of medals in Olympics.**
+
+### 7.4.7 Which Sport has the maximum number of medals?
+
+```{r}
+sports_medal = df%>%
+  group_by(Sport)%>%
+  summarise(Count =  n())%>%
+  arrange(desc(Count))
+
+ggplot(sports_medal[1:10,], aes(x=reorder(Sport, - Count), y = Count, fill = Sport)) + geom_bar(stat = 'identity') +
+  theme(legend.position = "none",axis.text.x = element_text(size=12, angle = 45, face = 'bold'),
+        axis.text.y = element_text(size = 12, face = 'bold')) + xlab("Sport")
+  
+```
+
+**Aquatics followed by Athletics have the most number of medals.**
+
+### 7.4.8 Which Event has the most number of medals?
+
+```{r}
+events_medal = df%>%
+  group_by(Event)%>%
+  summarise(Count =  n())%>%
+  arrange(desc(Count))
+
+ggplot(events_medal[1:10,], aes(x=Event, y = Count, fill = Event)) + geom_bar(stat = 'identity', position = 'stack') +
+  coord_polar(theta = 'x') +
+  theme(legend.position = "none",axis.text.x = element_text(size=8, face = 'bold'),
+        axis.text.y = element_text(size = 12, face = 'bold')) + xlab("Event") +
+  scale_y_continuous(limits = c(0,1500)) + scale_fill_brewer(palette = "Spectral")
+```
+
+**Football has the most number of medals under Sport Football followed by Hockey. Aquatics as a Sport has the highest number of medals which have come from various events under it. Football, Hockey, Badminton, Basketball are all standalone sports with no events under them.**
+
+
+## 7.5 Bivariate/Multivariate Analysis
+
+Bivariate Analysis deals with 2 variables/columns at a time.
+
+### 7.5.1 Has the participation in terms of countries increased over the years?( considering in terms of those who have won medals)
+
+```{r}
+country_year = df %>%
+  group_by(Year) %>%
+  summarise(Countries = n_distinct(Country))
+
+ggplot(country_year) +
+  aes(x = factor(Year), weight = Countries) +
+  geom_bar(fill = "#0c4c8a")  + 
+  xlab("Year") + ylab("Frquency") + theme(axis.text.x = element_text(size=10, angle=45)) +
+  scale_y_continuous(limits=c(0, 100))
+  
+```
+
+**Over the years, more countries have participated in Olympics. In 2012, there were 86 countries which have won at least one medal.**
+
+### 7.5.2 Cities where Olympics has been held over the years
+```{r}
+Cities = df%>%
+  select(Year, City)%>%
+  group_by(Year, City)%>%
+  summarise(n = n())
+City = data.frame(table(Cities$City))%>%
+  arrange(desc(Freq))
+
+datatable(City, rownames = FALSE) %>%
+  formatStyle(columns = "Var1", 
+              backgroundColor = "lightblue")%>%
+  formatStyle(columns = "Freq", 
+              backgroundColor = "lightblue")
+
+```
+
+**London has hosted Olympics for 3 Years followed by Athens, Los Angeles, Paris, etc.**
+
+### 7.5.3 Has the number of Sports increased over the years?
+
+```{r}
+sports_year = df %>%
+  group_by(Year) %>%
+  summarise(Sports = n_distinct(Sport))
+
+ggplot(sports_year, aes(x = factor(Year), y = Sports, fill = factor(Year))) + geom_bar(stat = 'identity', position = 'stack') +
+coord_polar(theta = "x") +
+  scale_y_continuous(limits=c(0, 30)) + xlab("Year") + ylab("Number of Sports") +
+  theme(axis.text.y = element_text(size = 12, face = 'bold'),
+        axis.text.x = element_text(size = 12, face = 'bold'),
+        legend.position = "none")
+  
+```
+
+**The number of Sports has increased over the years starting from just 9 in 1896.**
+
+***26 Sports were part of Olympics, 2012. Below is the list***
+
+```{r}
+#The type of Sports in 2012
+Distinct_Sports = df %>%
+  select(Year, Sport)%>%
+  filter(Year == 2012)
+list = unique(Distinct_Sports$Sport)
+Unique_sports = data.table(list)
+datatable(Unique_sports, rownames = FALSE) %>%
+  formatStyle(columns = "list", 
+              backgroundColor = "lightgreen") 
+```
+
+**Olympics started with just 9 Sports and as of 2012 there were 26 Sports being played. Overall, there are 43 Sports that were part of Olympics.**
+
+### 7.5.4 Which Sporting events were common across all Summer Olympics?
+
+```{r}
+#how many years of Olympics data is there
+
+length(unique(df$Year)) 
+
+#so 27 times Olympics has been played so far. The Sports which occur 27 times will be the ones which were played in every Olympic
+
+common_sports = df%>%
+  select(Year, Sport)%>%
+  group_by(Year, Sport)%>%
+  summarise(Unique = unique(Sport))
+
+t = table(common_sports$Unique)
+t[which(t==27)]
+```
+
+
+
+
+### 7.5.4 Distinct number of countries participating in each Sport
+
+```{r}
+country_sport = df%>%
+  select(Country, Sport)%>%
+  group_by(Sport)%>%
+  summarise(Count = n_distinct(Country))
+
+ggplot(country_sport, aes(x = reorder(Sport, - Count), y = Count)) + geom_bar(stat = "identity", fill = "violet") +
+  theme(axis.text.x = element_text(size=8, angle=45)) +
+  scale_y_continuous(limits=c(0, 100)) + xlab("Sport")
+
+```
+
+**Athletics has the most number of distinct countries participating followed by Boxing, Shooting, etc.**
+
+### 7.5.5 Top countries every year in terms of medal tally?
+
+```{r}
+top_country_each_year = df%>%
+  select(Year, Country)%>%
+  group_by(Year, Country)%>%
+  summarise(Count = n())
+
+require(data.table)
+
+top_country_each_year = data.table(top_country_each_year)
+top_country_each_year = top_country_each_year[top_country_each_year[, .I[which.max(Count)], by=Year]$V1]
+
+ggplot(top_country_each_year, aes(x=factor(Year), y = Count, fill = Country)) + geom_bar(stat = 'identity') + xlab("Year") + theme(axis.text.x = element_text(size = 10, face = "bold", angle = 45),
+                                                                                                                              axis.text.y = element_text(size = 12, face = "bold")) +
+  scale_fill_brewer(palette = "Accent")
+```
+
+**USA had been on top for most of the years. However, when URS made entry into Olympics in 1952 and exited after 1988, in that time period URS was on top of medal tally every Olympics except for 1984. This just shows how much URS dominated Olympics.**
+
+### 7.5.6 What is the men to women tally of medals over the years? 
+
+```{r}
+ggplot(data = df) + geom_bar(aes(x = factor(Year), fill = Gender), position = 'stack')+ theme(axis.text.x = element_text(size=10, angle=45)) +
+  scale_y_continuous(limits=c(0, 2500)) + xlab("Year")
+```
+
+**Over the years, women broke even with men's medal tally and in 2012, the number of medals were almost same across the 2 genders.**
+
+### 7.5.7 What is the distribution of medals across men and women?
+
+```{r}
+vtree(df, 'Gender Medal', horiz = FALSE)
+```
+
+**The distribution of medal type is similar for both Men and Women.**
+
+### 7.5.8 What is the distribution of medals across different sports for men and women?
+
+```{r}
+ggplot(data = df) + geom_bar(aes(x = Sport, fill = Gender), position = 'stack') + coord_flip()+ theme(axis.text.y = element_text(size=6)) +
+  scale_y_continuous(limits=c(0, 5000)) + theme_bw()
+```
+
+**In most of the Sports, the ratio of men to women medal count is skewed towards the men except for  few where the ratio is almost 1:1. However, for Softball only women have won medals as it is a women-only event.**
+
+### 7.5.9 What is the distribution of medal type across top 10 countries with most number of medals?
+
+```{r}
+#we have previously shown in univariate analysis the top 10 countries
+top10_countries = df%>%
+  select(Country, Medal)%>%
+  filter(Country %in% c("USA","URS","GBR","FRA","GER","ITA","AUS","HUN","SWE","NED"))%>%
+  group_by(Country, Medal)%>%
+  summarise(Count = n())
+
+ggplot(data = top10_countries, aes(x = reorder(Country, -Count), y = Count)) +
+  geom_bar(stat = 'identity',aes(fill = Medal)) +
+  scale_fill_hue(c = 85, l = 20) + theme(axis.text.x = element_text(size = 12, face = 'bold'),
+                                         axis.text.y = element_text(size = 12, face = 'bold')) +
+  xlab("Country")
+```
+
+**USA has the most number of medals across all medal types. USA, URS have more gold than bronze and silver indicating their exceptional performance.**
+
+### 7.5.10 Top 10 countries in last 3 Olympics
+
+```{r}
+last_3_Olympics = df%>%
+  select(Year, Country)%>%
+  filter(Year %in% c(2004,2008,2012))%>%
+  group_by(Country)%>%
+  summarise(Count = n())%>%
+  arrange(desc(Count))
+
+ggplot(last_3_Olympics[1:10,], aes(x=Country, y = Count)) + 
+  geom_point(aes(size = Count,color = Country)) +
+  theme(axis.text.x = element_text(size = 12, face = 'bold'),
+        axis.text.y = element_text(size = 12, face = 'bold'))
+
+```
+
+**In last 3 Olympics, China, Japan Russia have made in their way.**
+
+### 7.5.11 Find how the overall top 10 countries in terms of medal tally have performed over the years?
+
+```{r}
+top10_countries_year = df%>%
+  select(Country,Year)%>%
+  filter(Country %in% c("USA","URS","GBR","FRA","GER","ITA","AUS","HUN","SWE","NED"),
+         Year)%>%
+  group_by(Country, Year)%>%
+  summarise(Count = n())
+
+ggplot(top10_countries_year, aes(Country, Year))+
+  geom_raster(aes(fill = Count))+
+  scale_fill_continuous(name = "Medal Count") +
+  theme(axis.text.x = element_text(size = 12, face = 'bold'),
+        axis.text.y = element_text(size = 12, face = 'bold'))
+```
+
+**It is quite evident that over the years USA has mostly won more medals than rest top 10 countries.**
+**URS seem to have joined much later than other top 10 countries but has still managed to be secure the 2nd position in medal tally list overall by winning more medals each year than other countries but after that there was no participation after 1988.**
+
+**We can dig deeper and find out how URS has performed across various Sports and events.**
+
+### 7.5.12 What is the gender wise distribution of medals across these top 10 countries
+
+```{r}
+top10_countries_gender = df%>%
+  select(Country,Gender)%>%
+  filter(Country %in% c("USA","URS","GBR","FRA","GER","ITA","AUS","HUN","SWE","NED"))%>%
+  group_by(Country, Gender)%>%
+  summarise(Count = n())
+
+p = ggplot(data=top10_countries_gender, aes(x=factor(1), y = Count,  fill=Gender)) + geom_bar(stat = 'identity',
+                                              position = 'fill') 
+p = p + ggtitle("Medals by Gender Across countries") + xlab("") + ylab("Country") # Adds titles
+p = p + facet_wrap(facets=. ~ Country, nrow = 2) # Side by side bar chart
+p = p + coord_polar(theta="y") # side by side pie chart
+p  = p + theme(axis.ticks.y=element_blank(), axis.text.x=element_blank(),
+                axis.text.y=element_blank()) + scale_fill_brewer(palette = "Greens")
+p
+```
+
+**Except for Australia and Netherlands, all other countries have a skewed medal distribution towards men.**
+
+So far we have seen that USA has won the most number of medals in Olympics and URS has entered quite late but have managed to secure the 2nd position in overall medal list.So, we can do a deep dive into these 2 countries to find out more.
+
+### 7.5.13 USA Stats
+
+```{r}
+USA = df%>%
+  select(Country, Sport, Year, Discipline, Event, Medal, Athlete, Gender)%>%
+  filter(Country == "USA")
+head(USA, 5)
+```
+
+
+#### 7.5.13.1 Which Sport accounted for most medals for USA?
+
+```{r}
+Top_10_Sports = USA%>%
+  select(Sport, Medal)%>%
+  group_by(Sport, Medal)%>%
+  summarise(Count = n())
+
+ggplot(Top_10_Sports, aes(x = reorder(Sport, Count), y = Count, fill = Medal)) + geom_bar(stat = 'identity') +
+  coord_flip() + xlab("Sport") + scale_fill_brewer(palette = "Accent")
+```
+
+**Aquatics and Athletics have produced the most number of medals for USA. Also, USA has won more gold in each Sport than other medal types.**
+
+#### 7.5.13.2 Year-wise medal tally for Aquatics and Athletics for USA
+
+```{r}
+medal_tally_USA = USA%>%
+  select(Year, Sport)%>%
+  filter(Sport %in% c("Aquatics", "Athletics"))%>%
+  group_by(Year,Sport)%>%
+  summarise(Count = n())
+ggplot(data = medal_tally_USA, aes(x=Year, y = Count)) + geom_line(aes(color= Sport), size = 2) +
+  theme(axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"))
+```
+
+**In the initial years, Athletics accounted for more medals than Aquatics but overtime Aquatics has taken over Athletics and is the topmost Sport for USA.**
+
+#### 7.5.13.3 Gender-wise medal tally for Aquatics and Athletics for USA
+
+```{r}
+medal_tally_USA_gender = USA%>%
+  select(Year, Sport, Gender)%>%
+  filter(Sport %in% c("Aquatics", "Athletics"))%>%
+  group_by(Year,Sport, Gender)%>%
+  summarise(Count = n())
+
+ggplot(data = medal_tally_USA_gender, aes(x = Year, y = Count, fill = Gender)) +
+  geom_bar(stat = 'identity', position = 'stack') + 
+  facet_wrap(facets=. ~ Sport, nrow = 2)
+```
+
+***The overall tally across Years for men and women***
+
+```{r}
+Aquatics_athletics = USA%>%
+  select(Sport, Gender)%>%
+  filter(Sport %in% c("Aquatics", "Athletics"))
+
+vtree(Aquatics_athletics, "Sport Gender", horiz = FALSE)
+```
+
+
+
+
+
+**Overtime women medal tally has increased in both Aquatics and Athletics and in 2012 in both the Sports, women have won more medals than men.**
+
+#### 7.5.13.4 Which Discipline under Aquatics has been the best?
+
+```{r}
+Aquatics_Discipline = USA%>%
+  select(Discipline, Sport, Medal, Event)%>%
+  filter(Sport == 'Aquatics')
+
+vtree(Aquatics_Discipline, "Discipline Medal", horiz = FALSE, width = 800, height = 500)
+```
+
+**Swimming is the most medal intensive discipline under aquatics which alone got USA 500 GOLD medals.**
+
+#### 7.5.13.5 Which Event under Swimming Discipline has got the most number of medals?
+
+```{r}
+Aquatics_Event_swimming = USA%>%
+  select(Discipline, Sport, Medal, Event)%>%
+  filter(Discipline == "Swimming")%>%
+  group_by(Event)%>%
+  summarise(Count = n())%>%
+  arrange(desc(Count))
+
+ggplot(Aquatics_Event_swimming[1:10,], aes(y = Count, x = Event))  + 
+  geom_point(shape = 15, size = 5, color = "maroon") + geom_col(width = 0.1, fill = 'green') + 
+  labs( x = "Country", y = "Medal Count", fill = "Country")+
+   coord_flip() 
+```
+
+**4x100M Freestyle Relay, 4x100M Medley Relay and 4x200M Freestyle Relay have been the best for USA**
+
+#### 7.5.13.6 Which Event under Athletics Discipline has got the most number of medals?
+
+```{r}
+Athletics_Event = USA%>%
+  select(Event, Sport, Medal)%>%
+  filter(Sport == 'Athletics')%>%
+  group_by(Event)%>%
+  summarise(Count = n())%>%
+  arrange(desc(Count))
+
+ggplot(Athletics_Event[1:10,], aes(y = Count, x = Event))  + 
+  geom_point(shape = 15, size = 5, color = "maroon") + geom_col(width = 0.1, fill = 'green') + 
+  labs( x = "Country", y = "Medal Count", fill = "Country") + coord_flip()
+```
+
+**4x100M Relay and 4x400M Relay won most medals for USA under Athletics**
+
+### 7.5.14 URS Stats
+
+```{r}
+URS = df%>%
+  select(Country, Sport, Year, Discipline, Event, Medal, Athlete, Gender)%>%
+  filter(Country == "URS")
+head(URS, 5)
+```
+
+#### 7.5.14.1 Which Sport accounted for most medals for URS?
+
+```{r}
+Top_10_Sports_1 = URS%>%
+  select(Sport, Medal)%>%
+  group_by(Sport, Medal)%>%
+  summarise(Count = n())
+
+ggplot(Top_10_Sports_1, aes(x = reorder(Sport, Count), y = Count, fill = Medal)) + geom_bar(stat = 'identity') +
+  coord_flip() + xlab("Sport") + scale_fill_brewer(palette = "Accent")
+
+```
+
+**Gymnastics has been the most rewarding Sport for URS. Like USA, URS has also mostly won gold across all Sports.**
+
+#### 7.5.14.2 Year wise medal tally for URS?
+
+```{r}
+medal_tally_URS = URS%>%
+  select(Year,Medal)%>%
+  group_by(Year,Medal)%>%
+  summarise(Count = n())
+  
+ggplot(data = medal_tally_URS, aes(x=Year, y = Count)) + geom_line(aes(color = Medal),size = 2) +
+  theme(axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold")) 
+```
+
+**From the beginning URS continued an increasing trend but after 1980 it fell abruptly. 1980 was particularly the best for URS**
+
+#### 7.5.14.3 URS vs other top countries since 1952 (when URS started)
+
+```{r}
+top_countries = df%>%
+  select(Year, Country)%>%
+  filter(Country %in% c("USA","URS","GBR","FRA","GER","ITA","AUS","HUN","SWE","NED"))%>%
+  group_by(Year, Country)%>%
+  summarise(Count = n())
+
+ggplot(data = top_countries, aes(x=Year, y = Count)) + geom_line(aes(color = Country),size = 1) +
+  theme(axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold")) + scale_color_brewer(palette = "Spectral")
+
+```
+
+**It can be seen that when URS entered into Olympics, it consistently performed better than all top countries even USA which has the most number of medals in Olympics History.**
+
+### 7.5.15 Which country has produced the most medal winning Athletes?
+
+```{r}
+athlete_country = df%>%
+  group_by(Country)%>%
+  summarise(Total = n_distinct(Athlete))%>%
+  arrange(desc(Total))
+
+
+ggplot(athlete_country[1:8,], aes(x = Country, y = Total)) + geom_bar(aes(fill = Country),
+                                            stat = 'identity', position = 'stack') +
+  coord_polar(theta = "x") + scale_fill_brewer(palette = "Accent")
+```
+
+**It was quite evident that USA had the highest medal winners given it has the highest medal tally. So, this does not really give us any insight.**
+
+### 7.5.16 Which Sport has most number of Athletes competing against each other?
+
+```{r}
+sport_athlete = df%>%
+  select(Sport, Athlete)%>%
+  group_by(Sport)%>%
+  summarise(Total = n_distinct(Athlete))
+
+ggplot(sport_athlete, aes(x = Sport, y = Total)) + geom_bar(aes(fill = Sport),
+                                                                      stat = 'identity', position = 'stack') +
+  coord_polar(theta = "x") + theme(legend.position = "none")
+```
+
+**Aquatics, Athletics, Rowing are the most competitive Sports in Olympics.**
+
+### 7.5.17 Which Athlete has won the highest number of Gold medals in Olympics?
+
+```{r}
+Gold = df%>%
+  select(Athlete, Medal)%>%
+  filter(Medal == "Gold")%>%
+  group_by(Athlete)%>%
+  summarise(Total = n())%>%
+  arrange(desc(Total))
+
+datatable(Gold, rownames = FALSE) %>%
+  formatStyle(columns = "Athlete", 
+              backgroundColor = "lightgrey") %>%
+  formatStyle(columns = "Total", 
+              backgroundColor = "lightgreen") 
+```
+
+**Michael Phelps has won the most number of gold medals.**
+
+### 7.5.18 Distribution of medal for top 10 Athletes
+
+We will be referring to the top 10 Athletes found in univariate analysis
+
+```{r}
+list = c(Athletes$Athlete[1:10])
+
+top10_athletes_medal = df%>%
+  select(Medal, Athlete)%>%
+  filter(Athlete %in%list)%>%
+  group_by(Athlete, Medal)%>%
+  summarise(Count = n())
+
+
+r = ggplot(data=top10_athletes_medal, aes(x=factor(1), y = Count,  fill=Medal)) + geom_bar(stat = 'identity',
+                                                                                               position = 'fill') 
+r = r + ggtitle("Medals by Athletes") + xlab("") + ylab("Country") # Adds titles
+r = r + facet_wrap(facets=. ~ Athlete, nrow = 2) # Side by side bar chart
+r = r + coord_polar(theta="y") # side by side pie chart
+r  = r + theme(axis.ticks.y=element_blank(), axis.text.x=element_blank(),
+                axis.text.y=element_blank()) + scale_fill_brewer(palette = "Blues")
+
+r
+```
+
+**Most of the top 10 Athletes have majorly won gold.**
+
+### 7.5.19 Sports played by the top 10 Athletes
+
+```{r}
+top10_athletes_sport = df%>%
+  select(Sport, Athlete)%>%
+  filter(Athlete %in%list)
+
+vtree(top10_athletes_sport, "Athlete Sport", horiz = FALSE)
+```
+
+**6 out of top 10 players compete in Gymnastics.**
+
+
+## 8. Conclusion
+
+Above, we have tried to analyse the summer olympics data by finding the behaviour of each variable and also accounted for their relationships with each other. The following insights can be drawn from the analysis:
+
+* Olympics started with just 9 Sports and overtime it has witnessed 43 distinct Sports with as many as 148 countries having won at least one medal.
+
+* With is inauguration in 1896, only 5 Sports were played during every Olympics namely Aquatics, Athletics, Gymnastics, Cycling and Fencing
+
+* Aquatics has  the most number of medals followed by Athletics and Rowing. Also, these 3 have been the most competitive Sports with most number of Athletes taking part
+
+* USA has won the most number of medals in Olympics and that too gold medals and has been the top medal holder for last many Olympics
+
+* Men to Women medal tally has been quite skewes towards men (73:27). However, over the years, women have slowly closed the gap and in last 2-3 Olympics, the medal tally has been almost equal
+
+* For the top 10 countries also the skewness remains except for Australi and Netherlands where it is not very skewed
+
+* USA has the most medals in Olympics and the 2 most Sports contributing to its success are Aquatics and Athletics which together have given more than 2000 medals
+
+* Over last few years, in these 2 sports, women have done quite well specially in Aquatics
+
+* URS came into Olympics only in 1952 and played till 1988 but have since been on top (2nd after USA) of medal list due to their exceptional performance during the all the years that they have played
+
+* Michael Phelps has been the most successful Athlete of all times in Olympics bagging 22 medals out of which 19 are Gold. 
+
+* 6 out of top 10 Athletes are from Gymnastics
+
+
